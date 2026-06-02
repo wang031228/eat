@@ -32,6 +32,7 @@ export default {
         "pulse-glow": "pulseGlow 2s ease-in-out infinite",
         "confetti-fall": "confettiFall 1.5s ease-in forwards",
         "gradient-flow": "gradientFlow 8s ease infinite",
+        "shimmer": "shimmer 0.15s ease-in-out infinite",
       },
       keyframes: {
         fadeIn: {
@@ -69,6 +70,10 @@ export default {
         gradientFlow: {
           "0%, 100%": { backgroundPosition: "0% 50%" },
           "50%": { backgroundPosition: "100% 50%" },
+        },
+        shimmer: {
+          "0%, 100%": { opacity: "1", filter: "blur(0px)" },
+          "50%": { opacity: "0.6", filter: "blur(2px)" },
         },
       },
     },

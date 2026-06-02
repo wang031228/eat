@@ -1,139 +1,15 @@
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
-
-const WHEEL_COLORS = [
-  "#FF6B35",
-  "#E85D26",
-  "#C4723A",
-  "#D4845A",
-  "#FF8C5A",
-  "#B5623A",
-  "#FF9F6B",
-  "#A65B30",
-  "#FFB088",
-  "#8B4513",
-  "#FFC4A8",
-  "#6B3410",
-  "#FFD5BF",
-  "#5A2D0C",
-  "#FFE8D6",
-];
-
-const POINTER_ANGLE = 360;
+import { Sparkles, Shuffle } from "lucide-react";
 
 export default function SpinWheel() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const wheelRef = useRef<HTMLDivElement>(null);
   const { foods, isSpinning, setIsSpinning, setCurrentResult, setShowResult, addHistory } = useAppStore();
-  const [rotation, setRotation] = useState(0);
-  const animationRef = useRef<number>(0);
-  const spinStartRef = useRef({ startRotation: 0, targetRotation: 0, startTime: 0, duration: 0 });
-
-  const drawWheel = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const size = 400;
-    canvas.width = size * dpr;
-    canvas.height = size * dpr;
-    canvas.style.width = `${size}px`;
-    canvas.style.height = `${size}px`;
-    ctx.scale(dpr, dpr);
-
-    const cx = size / 2;
-    const cy = size / 2;
-    const radius = size / 2 - 8;
-    const items = foods;
-    const count = items.length;
-
-    if (count === 0) {
-      ctx.clearRect(0, 0, size, size);
-      ctx.fillStyle = "#2D1F15";
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#FFF8F0";
-      ctx.font = '20px "ZCOOL KuaiLe", cursive';
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("请添加食物", cx, cy);
-      return;
-    }
-
-    const sliceAngle = (Math.PI * 2) / count;
-
-    ctx.clearRect(0, 0, size, size);
-
-    ctx.save();
-    ctx.shadowColor = "rgba(255, 107, 53, 0.3)";
-    ctx.shadowBlur = 30;
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = "#1A1210";
-    ctx.fill();
-    ctx.restore();
-
-    for (let i = 0; i < count; i++) {
-      const startAngle = i * sliceAngle - Math.PI / 2;
-      const endAngle = startAngle + sliceAngle;
-
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, radius, startAngle, endAngle);
-      ctx.closePath();
-
-      const colorIndex = i % WHEEL_COLORS.length;
-      ctx.fillStyle = WHEEL_COLORS[colorIndex];
-      ctx.fill();
-
-      ctx.strokeStyle = "rgba(26, 18, 16, 0.4)";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(startAngle + sliceAngle / 2);
-      ctx.textAlign = "right";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = "#FFF8F0";
-      ctx.font = `bold ${Math.min(16, 200 / count)}px "ZCOOL KuaiLe", cursive`;
-
-      const textRadius = radius * 0.68;
-      const name = items[i].name;
-      const maxWidth = radius * 0.5;
-      ctx.fillText(name, textRadius, 0, maxWidth);
-      ctx.restore();
-    }
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, 28, 0, Math.PI * 2);
-    ctx.fillStyle = "#1A1210";
-    ctx.fill();
-    ctx.strokeStyle = "#FF6B35";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, 20, 0, Math.PI * 2);
-    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 20);
-    gradient.addColorStop(0, "#FF8C5A");
-    gradient.addColorStop(1, "#FF6B35");
-    ctx.fillStyle = gradient;
-    ctx.fill();
-  }, [foods]);
-
-  useEffect(() => {
-    drawWheel();
-  }, [drawWheel]);
-
-  useEffect(() => {
-    const handleResize = () => drawWheel();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [drawWheel]);
+  const [displayName, setDisplayName] = useState("");
+  const [isPulling, setIsPulling] = useState(false);
+  const timerRef = useRef<number | null>(null);
+  const animSpeedRef = useRef(50);
+  const currentIndexRef = useRef(0);
+  const phaseRef = useRef<"spinning" | "slowing" | "stopped">("stopped");
 
   const spin = useCallback(() => {
     if (isSpinning || foods.length < 2) return;
@@ -141,102 +17,178 @@ export default function SpinWheel() {
     setIsSpinning(true);
     setCurrentResult(null);
     setShowResult(false);
+    setIsPulling(true);
+    phaseRef.current = "spinning";
+    animSpeedRef.current = 50;
 
-    const count = foods.length;
-    const targetIndex = Math.floor(Math.random() * count);
-    const sliceAngle = 360 / count;
-    const targetSliceCenter = targetIndex * sliceAngle + sliceAngle / 2;
-    const targetAngleFromPointer = (POINTER_ANGLE - targetSliceCenter + 360) % 360;
-    const extraSpins = 5 + Math.floor(Math.random() * 3);
-    const totalRotation = extraSpins * 360 + targetAngleFromPointer;
-
-    const startRotation = rotation;
-    const targetRotation = startRotation + totalRotation;
-    const duration = 4000 + Math.random() * 1500;
-
-    spinStartRef.current = {
-      startRotation,
-      targetRotation,
-      startTime: performance.now(),
-      duration,
-    };
+    const targetIndex = Math.floor(Math.random() * foods.length);
+    const totalSpinTime = 2500 + Math.random() * 1000;
+    const startTime = performance.now();
 
     const animate = (now: number) => {
-      const { startRotation: sR, targetRotation: tR, startTime, duration: dur } = spinStartRef.current;
       const elapsed = now - startTime;
-      const progress = Math.min(elapsed / dur, 1);
+      const progress = Math.min(elapsed / totalSpinTime, 1);
 
-      const eased = 1 - Math.pow(1 - progress, 4);
-      const currentRotation = sR + (tR - sR) * eased;
-
-      setRotation(currentRotation);
-
-      if (wheelRef.current) {
-        wheelRef.current.style.transform = `rotate(${currentRotation}deg)`;
-      }
-
-      if (progress < 1) {
-        animationRef.current = requestAnimationFrame(animate);
+      if (progress < 0.7) {
+        phaseRef.current = "spinning";
+        animSpeedRef.current = 50 + progress * 40;
+      } else if (progress < 0.95) {
+        phaseRef.current = "slowing";
+        const slowProgress = (progress - 0.7) / 0.25;
+        animSpeedRef.current = 90 + slowProgress * 250;
       } else {
-        setIsSpinning(false);
-        setCurrentResult(foods[targetIndex]);
-        setShowResult(true);
-        addHistory(foods[targetIndex].name);
+        phaseRef.current = "stopped";
+        setIsPulling(false);
+        setDisplayName(foods[targetIndex].name);
+
+        setTimeout(() => {
+          setIsSpinning(false);
+          setCurrentResult(foods[targetIndex]);
+          setShowResult(true);
+          addHistory(foods[targetIndex].name);
+          setIsPulling(false);
+        }, 400);
+
+        return;
       }
+
+      currentIndexRef.current = (currentIndexRef.current + 1) % foods.length;
+      setDisplayName(foods[currentIndexRef.current].name);
+
+      timerRef.current = setTimeout(animate, animSpeedRef.current);
     };
 
-    animationRef.current = requestAnimationFrame(animate);
-  }, [isSpinning, foods, rotation, setIsSpinning, setCurrentResult, setShowResult, addHistory]);
+    timerRef.current = setTimeout(animate, 50);
+  }, [isSpinning, foods, setIsSpinning, setCurrentResult, setShowResult, addHistory]);
+
+  useEffect(() => {
+    if (foods.length > 0 && !isSpinning) {
+      setDisplayName(foods[0].name);
+    }
+  }, [foods, isSpinning]);
 
   useEffect(() => {
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
 
   return (
-    <div className="relative flex flex-col items-center">
-      <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-20">
+    <div className="flex flex-col items-center">
+      <div className="relative">
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+          <div className="flex items-center gap-1 text-brand-orange/60 text-xs font-body tracking-widest">
+            <Sparkles className="w-3 h-3" />
+            <span>?</span>
+            <Sparkles className="w-3 h-3" />
+          </div>
+        </div>
+
         <div
-          className="w-0 h-0"
-          style={{
-            borderLeft: "14px solid transparent",
-            borderRight: "14px solid transparent",
-            borderTop: "28px solid #FF6B35",
-            filter: "drop-shadow(0 2px 6px rgba(255, 107, 53, 0.6))",
-          }}
-        />
+          className="relative w-[340px] h-[200px] rounded-2xl overflow-hidden
+                     bg-gradient-to-b from-brand-brown/80 to-brand-dark
+                     border-2 border-brand-orange/20
+                     shadow-[inset_0_0_60px_rgba(0,0,0,0.5),0_0_40px_rgba(255,107,53,0.15)]"
+        >
+          <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_4px,rgba(255,255,255,0.02)_4px,rgba(255,255,255,0.02)_8px)]" />
+
+          <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-brand-dark/60 to-transparent z-10" />
+          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-brand-dark/60 to-transparent z-10" />
+
+          <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-brand-dark/40 to-transparent z-10" />
+          <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-brand-dark/40 to-transparent z-10" />
+
+          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-brand-orange/30 z-10 shadow-[0_0_8px_rgba(255,107,53,0.3)]" />
+
+          <div className="flex items-center justify-center h-full">
+            <div
+              className={`
+                text-center px-6 py-4
+                ${isPulling || isSpinning ? "animate-shimmer" : ""}
+              `}
+            >
+              <span
+                className={`
+                  font-display text-5xl md:text-6xl tracking-wide
+                  transition-all duration-100
+                  ${isPulling || isSpinning
+                    ? "text-brand-orange drop-shadow-[0_0_20px_rgba(255,107,53,0.6)]"
+                    : "text-brand-cream"
+                  }
+                `}
+              >
+                {displayName || "添加食物"}
+              </span>
+            </div>
+          </div>
+
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1">
+            {foods.map((_, i) => (
+              <div
+                key={i}
+                className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                  i === currentIndexRef.current && (isPulling || isSpinning)
+                    ? "bg-brand-orange scale-125"
+                    : "bg-brand-cream/15"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="flex justify-between mt-2 px-2">
+          {[0, 1, 2].map((row) => (
+            <div key={row} className="flex gap-1.5">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{
+                    backgroundColor: `rgba(255,${107 + row * 30},${53 + row * 20},${0.15 + i * 0.05})`,
+                  }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div
-        ref={wheelRef}
-        className="relative rounded-full"
-        style={{ transform: `rotate(${rotation}deg)` }}
-      >
-        <canvas
-          ref={canvasRef}
-          className="rounded-full"
-          style={{ width: 400, height: 400 }}
-        />
-      </div>
+      <div className="relative mt-8">
+        <button
+          onClick={spin}
+          disabled={isSpinning || foods.length < 2}
+          className={`
+            relative px-14 py-4 rounded-full font-display text-xl tracking-wider
+            transition-all duration-300 select-none
+            ${isSpinning || foods.length < 2
+              ? "bg-brand-brown text-brand-cream/40 cursor-not-allowed opacity-60"
+              : "bg-gradient-to-r from-brand-orange to-orange-500 text-brand-dark font-bold shadow-lg hover:shadow-[0_0_30px_rgba(255,107,53,0.5)] hover:scale-105 active:scale-95"
+            }
+          `}
+        >
+          {isSpinning ? (
+            <span className="flex items-center gap-2">
+              <Shuffle className="w-5 h-5 animate-spin" />
+              抽选中...
+            </span>
+          ) : foods.length < 2 ? (
+            "至少添加2个食物"
+          ) : (
+            <span className="flex items-center gap-2">
+              <Shuffle className="w-5 h-5" />
+              开始抽选
+            </span>
+          )}
+        </button>
 
-      <button
-        onClick={spin}
-        disabled={isSpinning || foods.length < 2}
-        className={`
-          mt-8 px-10 py-4 rounded-full font-display text-xl tracking-wider
-          transition-all duration-300 select-none
-          ${
-            isSpinning || foods.length < 2
-              ? "bg-brand-brown text-brand-cream/40 cursor-not-allowed"
-              : "bg-brand-orange text-brand-dark hover:scale-105 hover:shadow-[0_0_30px_rgba(255,107,53,0.5)] active:scale-95 animate-pulse-glow"
-          }
-        `}
-      >
-        {isSpinning ? "抽选中..." : foods.length < 2 ? "至少添加2个食物" : "开始抽选"}
-      </button>
+        {!isSpinning && foods.length >= 2 && (
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+            <span className="text-[10px] text-brand-cream/20 font-body tracking-widest">
+              PULL
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
