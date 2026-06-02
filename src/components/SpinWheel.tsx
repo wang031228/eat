@@ -1,68 +1,75 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { Shuffle } from "lucide-react";
 
 export default function SpinWheel() {
-  const { foods, isSpinning, setIsSpinning, setCurrentResult, setShowResult, addHistory } = useAppStore();
+  const foods = useAppStore((s) => s.foods);
+  const isSpinning = useAppStore((s) => s.isSpinning);
+  const setIsSpinning = useAppStore((s) => s.setIsSpinning);
+  const setCurrentResult = useAppStore((s) => s.setCurrentResult);
+  const setShowResult = useAppStore((s) => s.setShowResult);
+  const addHistory = useAppStore((s) => s.addHistory);
   const [displayName, setDisplayName] = useState("");
-  const [isActive, setIsActive] = useState(false);
   const timerRef = useRef<number | null>(null);
   const currentIndexRef = useRef(0);
-
-  const spin = useCallback(() => {
-    if (isSpinning || foods.length < 2) return;
-
-    setIsSpinning(true);
-    setCurrentResult(null);
-    setShowResult(false);
-    setIsActive(true);
-
-    const targetIndex = Math.floor(Math.random() * foods.length);
-    const totalTime = 2000 + Math.random() * 800;
-    const startTime = performance.now();
-
-    const animate = (now: number) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / totalTime, 1);
-
-      if (progress < 0.65) {
-        currentIndexRef.current = (currentIndexRef.current + 1) % foods.length;
-        setDisplayName(foods[currentIndexRef.current].name);
-        const speed = 50 + progress * 60;
-        timerRef.current = window.setTimeout(() => animate(performance.now()), speed);
-      } else if (progress < 0.9) {
-        currentIndexRef.current = (currentIndexRef.current + 1) % foods.length;
-        setDisplayName(foods[currentIndexRef.current].name);
-        const slowProgress = (progress - 0.65) / 0.25;
-        const speed = 110 + slowProgress * 300;
-        timerRef.current = window.setTimeout(() => animate(performance.now()), speed);
-      } else {
-        setIsActive(false);
-        setDisplayName(foods[targetIndex].name);
-
-        setTimeout(() => {
-          setIsSpinning(false);
-          setCurrentResult(foods[targetIndex]);
-          addHistory(foods[targetIndex].name);
-          setShowResult(true);
-        }, 300);
-      }
-    };
-
-    timerRef.current = window.setTimeout(() => animate(performance.now()), 50);
-  }, [isSpinning, foods, setIsSpinning, setCurrentResult, setShowResult, addHistory]);
+  const foodsRef = useRef(foods);
 
   useEffect(() => {
-    if (foods.length > 0 && !isSpinning) {
+    foodsRef.current = foods;
+  }, [foods]);
+
+  useEffect(() => {
+    if (foods.length > 0 && !isSpinning && !displayName) {
       setDisplayName(foods[0].name);
     }
-  }, [foods, isSpinning]);
+  }, [foods, displayName, isSpinning]);
 
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
+
+  const handleSpin = () => {
+    if (isSpinning || foodsRef.current.length < 2) return;
+
+    setIsSpinning(true);
+    setCurrentResult(null);
+    setShowResult(false);
+
+    const currentFoods = foodsRef.current;
+    const targetIndex = Math.floor(Math.random() * currentFoods.length);
+    const totalTime = 2000 + Math.random() * 800;
+    const startTime = performance.now();
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / totalTime, 1);
+      const f = foodsRef.current;
+
+      if (progress < 0.65) {
+        currentIndexRef.current = (currentIndexRef.current + 1) % f.length;
+        setDisplayName(f[currentIndexRef.current].name);
+        timerRef.current = window.setTimeout(() => animate(performance.now()), 50 + progress * 60);
+      } else if (progress < 0.9) {
+        currentIndexRef.current = (currentIndexRef.current + 1) % f.length;
+        setDisplayName(f[currentIndexRef.current].name);
+        const slowProgress = (progress - 0.65) / 0.25;
+        timerRef.current = window.setTimeout(() => animate(performance.now()), 110 + slowProgress * 300);
+      } else {
+        const result = f[targetIndex];
+        setDisplayName(result.name);
+        setTimeout(() => {
+          setIsSpinning(false);
+          setCurrentResult(result);
+          addHistory(result.name);
+          setShowResult(true);
+        }, 300);
+      }
+    };
+
+    timerRef.current = window.setTimeout(() => animate(performance.now()), 30);
+  };
 
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-sm mx-auto">
@@ -76,9 +83,7 @@ export default function SpinWheel() {
                 transition-all duration-100 select-none
                 ${isSpinning
                   ? "text-brand-orange drop-shadow-[0_0_15px_rgba(255,107,53,0.5)] animate-shimmer"
-                  : isActive && !isSpinning
-                    ? "text-brand-orange drop-shadow-[0_0_20px_rgba(255,107,53,0.6)] animate-scale-in"
-                    : "text-brand-cream"
+                  : "text-brand-cream"
                 }
               `}
             >
@@ -89,7 +94,7 @@ export default function SpinWheel() {
       </div>
 
       <button
-        onClick={spin}
+        onClick={handleSpin}
         disabled={isSpinning || foods.length < 2}
         className={`
           w-full max-w-xs py-4 rounded-2xl font-display text-xl tracking-wider
