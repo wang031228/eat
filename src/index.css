@@ -63,4 +63,60 @@ input::placeholder {
   color: rgba(255, 248, 240, 0.3);
 }
 
+/* ===== Celebration Confetti ===== */
 
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(calc(100vh + 100px)) translateX(var(--sway, 0px)) rotate(var(--spin, 0deg));
+    opacity: 0;
+  }
+}
+
+.confetti-piece {
+  position: fixed;
+  top: -20px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9999;
+  animation-name: confetti-fall;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+/* ===== Result Popup ===== */
+
+@keyframes result-popup {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotateY(90deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12) rotateY(0deg);
+  }
+  70% {
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotateY(0deg);
+  }
+}
+
+@keyframes result-glow-pulse {
+  0%, 100% {
+    text-shadow: 0 0 20px rgba(255, 168, 0, 0.4), 0 0 60px rgba(255, 107, 53, 0.2);
+  }
+  50% {
+    text-shadow: 0 0 40px rgba(255, 168, 0, 0.8), 0 0 100px rgba(255, 107, 53, 0.4);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
