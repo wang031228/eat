@@ -1,6 +1,5 @@
 import SpinWheel from "@/components/SpinWheel";
 import FoodList from "@/components/FoodList";
-import HistoryList from "@/components/HistoryList";
 
 export default function Home() {
   return (
@@ -22,10 +21,6 @@ export default function Home() {
 
         <section className="w-full animate-slide-up" style={{ animationDelay: "0.1s" }}>
           <FoodList />
-        </section>
-
-        <section className="w-full animate-slide-up" style={{ animationDelay: "0.2s" }}>
-          <HistoryList />
         </section>
       </main>
 
