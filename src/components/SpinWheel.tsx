@@ -19,7 +19,7 @@ const WHEEL_COLORS = [
   "#FFE8D6",
 ];
 
-const POINTER_ANGLE = 270;
+const POINTER_ANGLE = 360;
 
 export default function SpinWheel() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
